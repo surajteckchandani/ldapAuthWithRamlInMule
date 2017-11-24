@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking"
+    xmlns:mule-ss="http://www.mulesoft.org/schema/mule/spring-security"
+    xmlns:ss="http://www.springframework.org/schema/security"
+    xmlns:beans="http://www.springframework.org/schema/beans"
+    xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/spring-security http://www.mulesoft.org/schema/mule/spring-security/current/mule-spring-security.xsd
+http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.1.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/https http://www.mulesoft.org/schema/mule/https/current/mule-https.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/spring-security http://www.mulesoft.org/schema/mule/spring-security/3.1/mule-spring-security.xsd
+http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.0.xsd
+http://www.springframework.org/schema/security/spring-security-3.2.xsd http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+	<!-- LDAP Auth configuration start here -->
+	<mule-ss:security-manager doc:name="LDAP Auth" name="ldapauth">
+		<mule-ss:delegate-security-provider name="security-provider" delegate-ref="ldap-authentication-manager" />
+	</mule-ss:security-manager>
+	<spring:beans>
+		<ss:authentication-manager id="ldap-authentication-manager"
+			alias="ldapAuthManager">
+			<ss:authentication-provider ref="ldap-auth-provider" />
+		</ss:authentication-manager>
+		<spring:bean id="ldap-auth-provider"
+			class="org.springframework.security.ldap.authentication.LdapAuthenticationProvider">
+			<spring:constructor-arg>
+				<spring:bean
+					class="org.springframework.security.ldap.authentication.BindAuthenticator">
+					<spring:constructor-arg ref="security-context-source" />
+					<spring:property name="userSearch" ref="ldap-user-search"></spring:property>
+				</spring:bean>
+			</spring:constructor-arg>
+			<spring:property name="userDetailsContextMapper" ref="ldap-user-details-context-mapper" />
+		</spring:bean>
+		<spring:bean id="security-context-source" class="org.springframework.security.ldap.DefaultSpringSecurityContextSource">
+			<spring:constructor-arg value="${ldap.url}" />
+			<spring:property name="userDn" value="${ldap.dn}" />
+			<spring:property name="password" value="${ladp.password}" />
+			<spring:property name="baseEnvironmentProperties">
+				<spring:map>
+					<spring:entry key="java.naming.ldap.version" value="3" />
+				</spring:map>
+			</spring:property>
+		</spring:bean>
+		<spring:bean id="ldap-user-search"
+			class="org.springframework.security.ldap.search.FilterBasedLdapUserSearch">
+			<spring:constructor-arg index="0" value="${ldap.base}" />
+			<spring:constructor-arg index="1" value="${ldap.filter}" />
+			<spring:constructor-arg index="2" ref="security-context-source" />
+			<spring:property name="searchSubtree" value="true" />
+		</spring:bean>
+		<spring:bean id="ldap-user-details-context-mapper" class="com.example.mulesoft.UserDetailsContextMapper" />
+	</spring:beans>
+	<!-- LDAP Auth configuration end here -->    
+    
+    <http:listener-config name="ldapauthwithraml-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <apikit:config name="ldapauthwithraml-config" raml="ldapauthwithraml.raml" consoleEnabled="false" doc:name="Router"/>
+    <db:mysql-config name="MySQL_Configuration" host="${db.host}" port="${db.port}" user="${db.username}" password="${db.password}" database="${database}" doc:name="MySQL Configuration"/>
+    <flow name="ldapauthwithraml-main">
+        <http:listener config-ref="ldapauthwithraml-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <apikit:router config-ref="ldapauthwithraml-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="ldapauthwithraml-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="ldapauthwithraml-console">
+        <http:listener config-ref="ldapauthwithraml-httpListenerConfig" path="/console/*" doc:name="HTTP"/>
+        <apikit:console config-ref="ldapauthwithraml-config" doc:name="APIkit Console"/>
+    </flow>
+    <flow name="get:/getallpatient:ldapauthwithraml-config">
+        <!-- <set-payload value="[&#xA;    {&#xA;      &quot;patientId&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;,&#xA;      &quot;patientTitle&quot;: &quot;Get Lucky&quot;&#xA;    },&#xA;    {&#xA;      &quot;patientId&quot;: &quot;550e8400-e29b-41d4-a716-446655440111&quot;,&#xA;      &quot;patientTitle&quot;: &quot;Loose yourself to dance&quot;&#xA;    },&#xA;    {&#xA;      &quot;patientId&quot;: &quot;550e8400-e29b-41d4-a716-446655440222&quot;,&#xA;      &quot;patientTitle&quot;: &quot;Gio sorgio by Moroder&quot;&#xA;    }&#xA;  ]" doc:name="Set Payload"/> -->
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[select * from patient_profile]]></db:parameterized-query>
+        </db:select>
+        <json:object-to-json-transformer doc:name="Object to JSON" />
+    </flow>
+    <flow name="get:/patient:ldapauthwithraml-config">
+        <logger message="#[message.inboundProperties.'http.query.params'.patientId]" level="INFO" doc:name="Logger" />
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[select * from patient_profile where id=#[message.inboundProperties.'http.query.params'.patientId]]]></db:parameterized-query>
+        </db:select>
+        <json:object-to-json-transformer doc:name="Object to JSON" />
+    </flow>
+    <flow name="post:/patient:application/x-www-form-urlencoded:ldapauthwithraml-config">
+        <set-property propertyName="Content-Type" value="application/json" doc:name="Property" />
+        <logger message="#[payload.name]" level="INFO" doc:name="Logger" />
+        <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[INSERT INTO `patient_profile`
+(`name`,`age`,`address`,`bloodtype`,`diagnosis`,`assigned_doctor`,`status`) VALUES (#[payload.name],#[payload.age],#[payload.address],#[payload.bloodtype],#[payload.diagnosis],#[payload.assigned_doctor],#[payload.status]);]]></db:parameterized-query>
+        </db:insert>
+        <set-payload value="{&quot;status&quot; : &quot;patient inserted successfully&quot;}" doc:name="Set Payload" />
+    </flow>
+    <apikit:mapping-exception-strategy name="ldapauthwithraml-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Resource not found&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Method not allowed&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Unsupported media type&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Not acceptable&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="401">
+            <apikit:exception value="org.springframework.security.authentication.BadCredentialsException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property" />
+            <set-payload value="{ &quot;message&quot;: &quot;Bad credential&quot; }" doc:name="Set Payload" />
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+</mule>

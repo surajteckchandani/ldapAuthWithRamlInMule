@@ -1,0 +1,115 @@
+#%RAML 0.8
+title: Patient API
+version: v1.0
+baseUri: http://test.com/api
+mediaType: application/json
+securitySchemes:
+    - basic:
+        type: Basic Authentication
+
+/getallpatient:
+  get:
+     description: "Get all patient"
+     securedBy: [basic]
+     responses:
+      200:
+        body:
+          application/json:
+            example: |
+                [
+                  {
+                    "age": 23,
+                    "address": "B-1 Sardeen Street",
+                    "bloodtype": "A+",
+                    "status": "discharged",
+                    "diagnosis": "Depression",
+                    "name": "John",
+                    "id": 1,
+                    "assigned_doctor": "Dr. Jacobs"
+                  },
+                  ....
+                ]
+      401:
+        body:
+          application/json:
+            example: |
+              { "message": "Bad credential" }
+              
+
+/patient:
+  get:
+     description: "Get patient"
+     securedBy: [basic]
+     queryParameters:
+        patientId:
+          description: "Get single patient Info"
+          required: true
+          type: number
+          example: 134
+     responses:
+      200:
+        body:
+          application/json:
+            example: |
+                    [
+                      {
+                        "age": 12,
+                        "address": "C-1 Heartwool street",
+                        "bloodtype": "AB+",
+                        "status": "Admited",
+                        "diagnosis": "Trauma",
+                        "name": "demo",
+                        "id": 134,
+                        "assigned_doctor": "Dr. Jhon"
+                      }
+                    ]
+      401:
+        body:
+          application/json:
+            example: |
+              { "message": "Bad credential" }
+
+  post:
+    securedBy: [basic]
+    body:
+          application/x-www-form-urlencoded:
+            formParameters:
+              name:
+                displayName: Name
+                type: string
+                required: true
+              age:
+                displayName: Age
+                type: number
+                required: true
+              address:
+                displayName: Address
+                type: string
+                required: true
+              bloodtype:
+                displayName: Blood Type
+                type: string
+                required: true
+              diagnosis:
+                displayName: Diagnosis
+                type: string
+                required: true
+              assigned_doctor:
+                displayName: Assigned Doctor
+                type: string
+                required: true
+              status:
+                displayName: Status
+                type: string
+                required: true  
+    responses:
+      201:
+        body:
+           application/json:
+             example: |
+              {"status" : "patient inserted successfully"}
+      401:
+        body:
+          application/json:
+            example: |
+              { "message": "Bad credential" }
